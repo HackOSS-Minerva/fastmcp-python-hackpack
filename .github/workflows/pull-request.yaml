@@ -1,0 +1,117 @@
+name: pull-request
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  format:
+    name: format
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.0.1
+        with:
+          version: "latest"
+
+      - name: Install dependencies
+        run: uv sync --locked --no-editable
+
+      - name: Check formatting
+        run: uv run --locked --no-editable ruff format --check .
+
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.0.1
+        with:
+          version: "latest"
+
+      - name: Install dependencies
+        run: uv sync --locked --no-editable
+
+      - name: Lint
+        run: uv run --locked --no-editable ruff check .
+
+  build:
+    name: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.0.1
+        with:
+          version: "latest"
+
+      - name: Install dependencies
+        run: uv sync --locked --no-editable
+
+      - name: Build
+        run: uv build
+
+  test:
+    name: test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.0.1
+        with:
+          version: "latest"
+
+      - name: Install dependencies
+        run: uv sync --locked --no-editable
+
+      - name: Test
+        run: uv run --locked --no-editable python -m unittest discover -s tests -v
+
+  startup:
+    name: startup (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.0.1
+        with:
+          version: "latest"
+      - name: Install without editable path hooks
+        run: uv sync --locked --no-editable
+      - name: Simulate hidden path hooks on macOS
+        if: runner.os == 'macOS'
+        run: |
+          uv run --locked --no-editable python - <<'PYTHON'
+          import os
+          import stat
+          import sysconfig
+          from pathlib import Path
+
+          for path in Path(sysconfig.get_path("purelib")).glob("*.pth"):
+              os.chflags(path, path.stat().st_flags | stat.UF_HIDDEN)
+          PYTHON
+      - name: Check startup
+        run: uv run --locked --no-editable python -m unittest discover -s tests -p test_startup.py -v
