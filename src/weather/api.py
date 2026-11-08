@@ -46,6 +46,6 @@ async def make_nws_request(url: str) -> NWSResponse | None:
             response = await client.get(url, headers=headers, timeout=30.0)
             response.raise_for_status()
             data: object = response.json()
-        except (httpx.HTTPError, ValueError):
+        except httpx.HTTPError, ValueError:
             return None
     return cast(NWSResponse, data) if isinstance(data, dict) else None
