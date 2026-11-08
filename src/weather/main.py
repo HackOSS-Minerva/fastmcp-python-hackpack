@@ -1,85 +1,11 @@
 """A small weather MCP server to extend for your hackathon project."""
 
-from typing import Any
-
-import httpx
 from fastmcp import FastMCP
 
+from weather.api import make_nws_request
+from weather.constants import NWS_API_BASE, STATE_CODES
+
 mcp = FastMCP("Weather")
-
-NWS_API_BASE = "https://api.weather.gov"
-USER_AGENT = "weather-hackpack/1.0"
-STATE_CODES = {
-    "AL",
-    "AK",
-    "AZ",
-    "AR",
-    "CA",
-    "CO",
-    "CT",
-    "DE",
-    "FL",
-    "GA",
-    "HI",
-    "ID",
-    "IL",
-    "IN",
-    "IA",
-    "KS",
-    "KY",
-    "LA",
-    "ME",
-    "MD",
-    "MA",
-    "MI",
-    "MN",
-    "MS",
-    "MO",
-    "MT",
-    "NE",
-    "NV",
-    "NH",
-    "NJ",
-    "NM",
-    "NY",
-    "NC",
-    "ND",
-    "OH",
-    "OK",
-    "OR",
-    "PA",
-    "RI",
-    "SC",
-    "SD",
-    "TN",
-    "TX",
-    "UT",
-    "VT",
-    "VA",
-    "WA",
-    "WV",
-    "WI",
-    "WY",
-    "DC",
-    "AS",
-    "GU",
-    "MP",
-    "PR",
-    "VI",
-}
-
-
-async def make_nws_request(url: str) -> dict[str, Any] | None:
-    """Fetch NWS JSON, returning None when the service is unavailable."""
-    headers = {"User-Agent": USER_AGENT, "Accept": "application/geo+json"}
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.get(url, headers=headers, timeout=30.0)
-            response.raise_for_status()
-            data = response.json()
-        except httpx.HTTPError, ValueError:
-            return None
-    return data if isinstance(data, dict) else None
 
 
 @mcp.tool
@@ -90,13 +16,14 @@ async def get_alerts(state: str) -> str:
         return "Provide a valid two-letter US state or territory code, such as CA."
 
     data = await make_nws_request(f"{NWS_API_BASE}/alerts/active/area/{state}")
-    if data is None or not isinstance(data.get("features"), list):
+    features = data.get("features") if data else None
+    if not isinstance(features, list):
         return "Unable to fetch weather alerts. Please try again later."
-    if not data["features"]:
+    if not features:
         return f"No active alerts for {state}."
 
     alerts = []
-    for feature in data["features"]:
+    for feature in features:
         props = feature.get("properties") or {}
         alerts.append(
             f"Event: {props.get('event') or 'Unknown'}\n"
